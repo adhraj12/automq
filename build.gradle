@@ -2335,18 +2335,35 @@ project(':tools:tools-api') {
 }
 
 project(':automq-metrics') {
+  apply plugin: 'io.github.goooler.shadow'
+
   archivesBaseName = "automq-metrics"
 
   checkstyle {
     configProperties = checkstyleConfigProperties("import-control-server.xml")
   }
 
-  configurations {
-    all {
-      exclude group: 'io.opentelemetry', module: 'opentelemetry-exporter-sender-okhttp'
+  jar.enabled = false
+
+  tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    archiveClassifier.set('')
+
+    relocate 'io.opentelemetry.exporter', 'com.automq.shaded.io.opentelemetry.exporter'
+    relocate 'okhttp3', 'com.automq.shaded.okhttp3'
+    relocate 'okio', 'com.automq.shaded.okio'
+    relocate 'kotlin', 'com.automq.shaded.kotlin'
+
+    mergeServiceFiles {
+      exclude 'META-INF/services/io.opentelemetry.context.*'
     }
   }
-    
+
+  artifacts {
+    runtimeElements(tasks.named('shadowJar'))
+  }
+
+  build.dependsOn shadowJar
+
   dependencies {
     // OpenTelemetry core dependencies
     api libs.opentelemetryJava8
@@ -2400,6 +2417,9 @@ project(':automq-metrics') {
     implementation("io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java8:2.6.0-alpha")
     implementation('com.google.protobuf:protobuf-java:3.25.5')
     implementation('org.xerial.snappy:snappy-java:1.1.10.5')
+
+    // Reinstate sender-okhttp 1.40.0
+    implementation('io.opentelemetry:opentelemetry-exporter-sender-okhttp:1.40.0')
   }
 
   clean.doFirst {
